@@ -26,3 +26,4 @@ fs.open('test.html','r', function(err,handle) {
 		fs.close(f);
 	});
 });
+
