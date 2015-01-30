@@ -19,5 +19,5 @@ var newUser = {"firstName":"Brian", "lastName":"Immel","age":"43"};
 
 
 // remove property
-delete user.birthDate // removes the property birthDate from the object
+//delete user.birthDate // removes the property birthDate from the object
 
