@@ -1,4 +1,5 @@
 var http = require("http");
+var url = require("url");
 var fs = require("fs");
 
 // respond to /albums.json
@@ -8,9 +9,13 @@ var fs = require("fs");
 function handle_incoming_request(req,res) {
 	console.log("Incoming request: (" + req.method + ") " + req.url);
 	
-	if (req.url == "/albums.json") {
+	req.parsed_url = url.parse(req.url, true); // set query parameters to parsed (objects listed)
+	//console.log(req.parse_url);
+	var core_url = req.parsed_url.pathname;
+	
+	if (core_url == "/albums.json") {
 		handle_load_albums(req,res);
-	} else if (req.url.substr(0,7) == "/albums" && req.url.substr(req.url.length - 5) == ".json") {
+	} else if (core_url.substr(0,7) == "/albums" && core_url.substr(core_url.length - 5) == ".json") {
 		handle_get_album(req,res);
 	} else {
 		res.writeHead(404, {"Content-Type":"application/json"});
@@ -59,10 +64,20 @@ function load_album_list(callback) {
 	});
 }
 
-function handle_get_albums(req, res) {
-	var album_name = req.url.substr(7,req,url.length-12); // album name
+function handle_get_album(req, res) {
+	var core_url = req.parsed_url.pathname;
+	var album_name = core_url.substr(7,core_url.length - 12); // album name
+	var page = parseInt(req.parsed_url.query.page);
+	var page_size = parseInt(req.parsed_url.query.page_size);
 	
-	load_album(function(err, photos) {
+	if (isNaN(page) || page <= 0) {
+		page = 0; // default to first page if not supplied in request
+	}
+	if (isNaN(page_size) || page_size <= 0) {
+		page_size = 250; // set default number of items display to 250 (maybe use a smaller number)
+	}
+	
+	load_album(album_name, page, page_size, function(err, photos) {
 		if (err != null) {
 			res.writeHeader(503, {"Content-Type" : "application/json"});
 			res.end(JSON.stringify({error:"file_error", message: err.message}) + "\n");
@@ -74,7 +89,7 @@ function handle_get_albums(req, res) {
 	});
 }
 
-function load_album (album_name, callback) {
+function load_album(album_name, page, page_size, callback) {
 	fs.readdir("albums/" + album_name, function(err, file_list) {
 		if (err) {
 			callback(err);
@@ -84,7 +99,8 @@ function load_album (album_name, callback) {
 		var files_only = [];
 		(function iterator(i) {
 			if (i >= file_list.length) {
-				callback(null, files_only);
+				var phots = files_only.splice(page * page_size, page_size);
+				callback(null, phots);
 				return;
 			}
 			fs.stat("albums/" + album_name + "/" + file_list[i], function (err, stats) {
